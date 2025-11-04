@@ -1,50 +1,104 @@
-// Load environment variables from .env file
-import 'dotenv/config'
-// Colors and prompts, yay!
-import c from 'kleur'
-import prompts from 'prompts'
+import express, { Request, Response } from 'express';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+import axios from 'axios';
+import { PrismaClient } from '@prisma/client';
 
-// Solana Client SDK
-import { Address, createSolanaClient, getMonikerFromGenesisHash, isAddress, lamportsToSol } from 'gill'
-// Solana Client SDK (Node.js)
-import { loadKeypairSignerFromFile } from 'gill/node'
+const app = express();
+const port = process.env.PORT || 3000;
+const prisma = new PrismaClient();
 
-// Get the Solana RPC endpoint from the environment variable or default to devnet
-const urlOrMoniker = process.env.SOLANA_RPC_ENDPOINT || 'devnet'
-const client = createSolanaClient({ urlOrMoniker })
 
-// Load the keypair from the .env file or use the default (~/.config/solana/id.json)
-const signer = await loadKeypairSignerFromFile(process.env.SOLANA_SIGNER_PATH)
+const upload = multer({ dest: 'uploads/' });
 
-// BELOW IS AN EXAMPLE, YOU CAN REMOVE IT AND REPLACE IT WITH YOUR OWN CODE
+const USDC_DEVNET_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERPYZJDncDU';
+const COINBASE_X402_VERIFY_URL = 'https://x402.org/facilitator/verify';
+const COINBASE_X402_SETTLE_URL = 'https://x402.org/facilitator/settle';
+const PAY_TO_TOKEN_ACCOUNT = '4eAXYnAEEL1tTY1fWgeXWx3xSDHFmYDtDSn4mDyq2Apq';
 
-// Get the balance of the provided address and print it to the console
-async function showBalance(address: Address) {
-  const balance = await client.rpc.getBalance(address).send()
-  console.log(c.gray(`Address : ${c.magenta(address)}`))
-  console.log(c.gray(`Balance : ${c.magenta(lamportsToSol(balance.value))} SOL`))
-}
+app.use(express.json());
 
-// Welcome message
-console.log(c.green(c.bold('Gm! Say hi to your new Solana script!')))
 
-// Show the endpoint and cluster
-console.log(c.gray(`Endpoint: ${urlOrMoniker.split('?')[0]}`))
-const cluster = getMonikerFromGenesisHash(await client.rpc.getGenesisHash().send())
-console.log(c.gray(`Cluster : ${c.white(cluster)}`))
+app.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const { file } = req;
+    const price = parseFloat(req.body.price || '0.01');
 
-// Show the signer's address and balance
-console.log(c.magenta(c.bold('Signer Keypair')))
-await showBalance(signer.address)
+    if (!file || isNaN(price)) {
+      return res.status(400).json({ error: 'Invalid file or price' });
+    }
 
-// Prompt the user for an address
-const res = await prompts({ type: 'text', name: 'address', message: 'Check another address', validate: isAddress })
-if (!res.address) {
-  console.log(c.red('No address provided'))
-  process.exit(1)
-}
-// Show the address and balance
-await showBalance(res.address)
+    const saved = await prisma.file.create({
+      data: {
+        filename: file.originalname,
+        path: file.path,
+        mime: file.mimetype,
+        price
+      }
+    });
 
-// And we're done!
-console.log(c.green(`Now go build something awesome!`))
+    res.json({ id: saved.id });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to upload file' });
+  }
+});
+
+app.get('/files/:id', async (req: Request, res: Response) => {
+  try {
+    const fileId = parseInt(req.params.id);
+    const file = await prisma.file.findUnique({ where: { id: fileId } });
+    if (!file) return res.status(404).json({ error: 'File not found' });
+
+    const requirement = {
+      x402Version: 1,
+      accepts: [
+        {
+          scheme: 'exact',
+          network: 'solana-devnet',
+          maxAmountRequired: (file.price * 1e6).toFixed(0),
+          resource: `/files/${file.id}`,
+          description: `Access to ${file.filename}`,
+          mimeType: file.mime,
+          payTo: PAY_TO_TOKEN_ACCOUNT,
+          asset: USDC_DEVNET_MINT,
+          extra: null
+        }
+      ]
+    };
+
+    const paymentHeader = req.header('X-PAYMENT');
+
+    if (!paymentHeader) {
+      return res.status(402).json(requirement);
+    }
+
+    const paymentPayload = JSON.parse(Buffer.from(paymentHeader, 'base64').toString());
+
+    const verifyRes = await axios.post<{ isValid: boolean }>(COINBASE_X402_VERIFY_URL, {
+      x402Version: 1,
+      paymentPayload,
+      paymentRequirements: requirement
+    });
+
+    if (!verifyRes.data.isValid) {
+      return res.status(402).json({ error: 'Payment not valid' });
+    }
+
+    await axios.post(COINBASE_X402_SETTLE_URL, {
+      x402Version: 1,
+      paymentPayload,
+      paymentRequirements: requirement
+    });
+
+    res.setHeader('Content-Type', file.mime);
+    const fileStream = fs.createReadStream(path.resolve(file.path));
+    fileStream.pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process payment or serve file' });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});

@@ -1,0 +1,17 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model File {
+  id        Int     @id @default(autoincrement())
+  filename  String
+  filePath  String
+  mimeType  String
+  price     Float
+}
