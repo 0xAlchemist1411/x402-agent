@@ -1,6 +1,5 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -8,10 +7,56 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model File {
-  id        Int     @id @default(autoincrement())
-  filename  String
-  filePath  String
-  mimeType  String
-  price     Float
+enum AssetType {
+  IMAGE
+  VIDEO
+  DOCUMENT
+  AUDIO
+  LINK
+  OTHER
+}
+
+model User {
+  id             Int       @id @default(autoincrement())
+  name           String?
+  walletAddress  String    @unique
+  email          String?   @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  assets         Asset[]
+
+  @@map("users")
+  @@index([walletAddress])
+}
+
+model Asset {
+  id            Int        @id @default(autoincrement())
+  filename      String
+  originalName  String?
+  title         String?
+  description   String?
+  filePath      String
+  assetType     AssetType?
+
+  // Pricing
+  price         Decimal     @default(0.01) @db.Decimal(10, 6) // USDC price with 6 decimals
+
+  metadata      Json?
+  tags          String[]    // Array of tags for searchability
+
+  // Relations
+  creatorId     Int
+  creator       User        @relation(fields: [creatorId], references: [id])
+
+  // Timestamps
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("assets")
+  @@index([assetType])
+  @@index([price])
+  @@index([createdAt])
+  @@index([creatorId])
 }
