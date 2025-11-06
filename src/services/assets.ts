@@ -1,5 +1,7 @@
 // src/services/assets.ts
-import { PrismaClient } from "@prisma/client";
+import { AssetType, PrismaClient } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
+
 
 const prisma = new PrismaClient();
 
@@ -46,7 +48,7 @@ export async function listAssets(opts: ListOpts = {}) {
 /**
  * Return a single asset by id
  */
-export async function getAssetById(id: number) {
+export async function getAssetById(id: string) {
   return prisma.asset.findUnique({
     where: { id },
     include: { creator: { select: { id: true, name: true, walletAddress: true } } },
@@ -67,4 +69,64 @@ export async function listAllTags() {
     }
   }
   return Array.from(set).sort();
+}
+
+
+export async function createAsset(data: {
+  filename: string;
+  originalName: string;
+  title?: string;
+  description?: string;
+  filePath: string;
+  base64Data: string;
+  assetType?: AssetType;
+  price: number;
+  tags: string[];
+  creatorId: string;
+  creatorWallet?: string;
+}) {
+
+  let user = await prisma.user.findUnique({
+    where: { id: data.creatorId }
+  });
+
+  if (!user && data.creatorWallet) {
+    try {
+      user = await prisma.user.create({
+        data: {
+          id: data.creatorId,
+          walletAddress: data.creatorWallet,
+          name: `User-${data.creatorId.slice(0, 8)}`
+        }
+      });
+    } catch (error) {
+      throw new Error('Failed to create new user');
+    }
+  } else if (!user) {
+    throw new Error('Creator not found and no wallet address provided');
+  }
+
+  return prisma.asset.create({
+    data: {
+      filename: data.filename,
+      originalName: data.originalName,
+      title: data.title,
+      description: data.description,
+      filePath: data.filePath,
+      base64Data: data.base64Data,
+      assetType: data.assetType,
+      price: new Decimal(data.price),
+      tags: data.tags,
+      creatorId: user.id
+    },
+    include: {
+      creator: {
+        select: {
+          id: true,
+          name: true,
+          walletAddress: true
+        }
+      }
+    }
+  });
 }

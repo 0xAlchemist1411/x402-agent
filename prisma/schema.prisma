@@ -17,46 +17,47 @@ enum AssetType {
 }
 
 model User {
-  id             Int       @id @default(autoincrement())
-  name           String?
-  walletAddress  String    @unique
-  email          String?   @unique
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id            String      @id @default(uuid())
+  name          String?
+  walletAddress String   @unique
+  email         String?  @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
-  assets         Asset[]
+  assets Asset[]
 
-  @@map("users")
   @@index([walletAddress])
+  @@map("users")
 }
 
 model Asset {
-  id            Int        @id @default(autoincrement())
-  filename      String
-  originalName  String?
-  title         String?
-  description   String?
-  filePath      String
-  assetType     AssetType?
+  id           String     @id @default(uuid())
+  filename     String
+  originalName String?
+  title        String?
+  description  String?
+  filePath     String
+  base64Data   String?    @db.Text // Add this field
+  assetType    AssetType?
 
   // Pricing
-  price         Decimal     @default(0.01) @db.Decimal(10, 6) // USDC price with 6 decimals
+  price Decimal @default(0.01) @db.Decimal(10, 6) // USDC price with 6 decimals
 
-  metadata      Json?
-  tags          String[]    // Array of tags for searchability
+  metadata Json?
+  tags     String[] // Array of tags for searchability
 
   // Relations
-  creatorId     Int
-  creator       User        @relation(fields: [creatorId], references: [id])
+  creatorId String
+  creator   User     @relation(fields: [creatorId], references: [id])
 
   // Timestamps
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("assets")
   @@index([assetType])
   @@index([price])
   @@index([createdAt])
   @@index([creatorId])
+  @@map("assets")
 }

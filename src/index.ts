@@ -7,7 +7,7 @@ import { PrismaClient } from '@prisma/client';
 
 const app = express();
 const port = process.env.PORT || 3000;
-const prisma = new PrismaClient();
+const prisma: any = new PrismaClient();
 
 
 const upload = multer({ dest: 'uploads/' });
@@ -19,6 +19,9 @@ const PAY_TO_TOKEN_ACCOUNT = '4eAXYnAEEL1tTY1fWgeXWx3xSDHFmYDtDSn4mDyq2Apq';
 
 app.use(express.json());
 
+app.get('/', (req: Request, res: Response) => {
+  res.send('Welcome to the File Payment Server');
+});
 
 app.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
   try {

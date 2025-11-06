@@ -8,3 +8,6 @@ dist
 /src/generated/prisma
 
 /data
+
+.DS_Store
+.vscode
