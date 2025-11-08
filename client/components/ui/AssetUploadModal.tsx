@@ -83,10 +83,13 @@ const AssetUploadModal: React.FC<AssetUploadModalProps> = ({
     }
 
     try {
-      const response = await fetch("http://localhost:3001/api/assets/upload", {
-        method: "POST",
-        body: form,
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL}/api/assets/upload`,
+        {
+          method: "POST",
+          body: form,
+        }
+      );
       const result = await response.json();
       if (response.ok) {
         alert("Asset uploaded successfully!");

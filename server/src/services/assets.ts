@@ -84,6 +84,7 @@ export async function createAsset(data: {
   tags: string[];
   creatorId: string;
   creatorWallet?: string;
+  url?: string;
 }) {
 
   let user = await prisma.user.findUnique({
@@ -117,7 +118,8 @@ export async function createAsset(data: {
       assetType: data.assetType,
       price: new Decimal(data.price),
       tags: data.tags,
-      creatorId: user.id
+      creatorId: user.id,
+      url: data?.url,
     },
     include: {
       creator: {

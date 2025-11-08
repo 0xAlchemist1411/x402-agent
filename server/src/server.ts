@@ -62,33 +62,49 @@ app.get("/api/tags", async (_req, res) => {
 
 app.post("/api/assets/upload", upload.single("file"), async (req, res) => {
   try {
-    const { title, description, assetType, price, tags, creatorId, creatorWallet } = req.body;
+    const { title, description, assetType, price, tags, creatorId, creatorWallet, url } = req.body;
 
-    if (!req.file || !creatorId) {
-      return res.status(400).json({
-        error: "bad_request",
-        message: "file and creatorId are required",
-      });
+    if (assetType === "LINK") {
+      if (!url || !creatorId) {
+        return res.status(400).json({
+          error: "bad_request",
+          message: "url and creatorId are required for LINK asset type",
+        });
+      }
+    } else {
+      if (!req.file || !creatorId) {
+        return res.status(400).json({
+          error: "bad_request",
+          message: "file and creatorId are required",
+        });
+      }
     }
 
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const base64Data = fileBuffer.toString("base64");
+    let base64Data = "";
+    let filePath = "";
 
-    fs.unlinkSync(req.file.path);
+    if (req.file && assetType !== "LINK") {
+      const fileBuffer = fs.readFileSync(req.file.path);
+      base64Data = fileBuffer.toString("base64");
+      filePath = req.file.path;
+
+      fs.unlinkSync(req.file.path);
+    }
 
     try {
       const asset = await assetsService.createAsset({
-        filename: req.file.filename,
-        originalName: req.file.originalname,
-        title: title || req.file.originalname,
+        filename: req.file?.filename || "",
+        originalName: req.file?.originalname || "",
+        title: title || req.file?.originalname || "Untitled",
         description: description || "",
-        filePath: req.file.path,
-        base64Data,
-        assetType: assetType || req.file.mimetype,
+        filePath: assetType !== "LINK" ? filePath : "",
+        base64Data: assetType !== "LINK" ? base64Data : "",
+        assetType: assetType.toUpperCase(),
         price: parseFloat(price) || 0.01,
         tags: tags ? JSON.parse(tags) : [],
         creatorId,
-        creatorWallet
+        creatorWallet,
+        url: assetType === "LINK" ? url : null,
       });
 
       res.json({ data: asset });
@@ -124,8 +140,26 @@ app.get("/api/assets/:id/base64", async (req, res) => {
       return res.status(404).json({ error: "not_found" });
     }
 
-    res.json({
-      data: asset,
+    if (asset.assetType === "LINK") {
+      return res.json({
+        data: {
+          type: "LINK",
+          url: asset.url,
+        },
+      });
+    }
+    if (asset.base64Data) {
+      return res.json({
+        data: {
+          type: asset.assetType,
+          base64: asset.base64Data,
+        },
+      });
+    }
+
+    return res.status(404).json({
+      error: "not_found",
+      message: "No base64 data found for this asset",
     });
   } catch (err) {
     console.error("GET /api/assets/:id/base64 error", err);
