@@ -1,5 +1,4 @@
-import { PrismaClient} from "@prisma/client";
-import { AssetType } from "../src/generated/prisma/index.js";
+import { AssetType, PrismaClient} from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -62,7 +61,7 @@ async function main() {
           title: "Exploring Multi-Agent Systems",
           description: "A deep dive into MCP and ATXP integrations.",
           filePath: "/uploads/paper_ai_research.pdf",
-          assetType: AssetType.DOCUMENT,
+          assetType: AssetType.PDF,
           price: 0.000001,
           metadata: { pages: 12, format: "PDF" },
           tags: ["AI", "research", "paper"],

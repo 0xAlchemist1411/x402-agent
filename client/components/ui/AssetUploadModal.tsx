@@ -1,17 +1,23 @@
 // components/AssetUploadModal.tsx
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { X } from "lucide-react"
-import { useState } from "react"
+import { motion } from "framer-motion";
+import { X } from "lucide-react";
+import { useState } from "react";
 
 interface AssetUploadModalProps {
-  isOpen: boolean
-  onClose: () => void
-  assetType: string
+  isOpen: boolean;
+  onClose: () => void;
+  assetType: string;
 }
 
-const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onClose, assetType }) => {
+type AssetType = "Image" | "Video" | "PDF" | "Link";
+
+const AssetUploadModal: React.FC<AssetUploadModalProps> = ({
+  isOpen,
+  onClose,
+  assetType,
+}) => {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -21,44 +27,70 @@ const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onClose, as
     creatorWallet: "",
     file: null as File | null,
     url: "",
-  })
+  });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null
-    setFormData((prev) => ({ ...prev, file }))
-  }
+    const file = e.target.files?.[0] || null;
+    setFormData((prev) => ({ ...prev, file }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const form = new FormData()
-    form.append("title", formData.title)
-    form.append("description", formData.description)
-    form.append("price", formData.price)
-    form.append("tags", JSON.stringify(formData.tags.split(",").map((tag) => tag.trim())))
-    form.append("creatorId", formData.creatorId)
-    form.append("creatorWallet", formData.creatorWallet)
-    form.append("assetType", assetType.toUpperCase())
+    e.preventDefault();
 
     if (assetType !== "Link" && formData.file) {
-      form.append("file", formData.file)
+      const allowedTypes: Record<AssetType, string[]> = {
+        Image: ["image/jpeg", "image/png", "image/gif"],
+        Video: ["video/mp4", "video/webm", "video/ogg"],
+        PDF: ["application/pdf"],
+        Link: [],
+      };
+
+      const fileType = formData.file.type;
+      if (!allowedTypes[assetType as AssetType]?.includes(fileType)) {
+        alert(`Invalid file type. Please upload a valid ${assetType} file.`);
+        return;
+      }
+    }
+
+    if (assetType === "Link" && !formData.url) {
+      alert("Please provide a valid URL.");
+      return;
+    }
+
+    const form = new FormData();
+    form.append("title", formData.title);
+    form.append("description", formData.description);
+    form.append("price", formData.price);
+    form.append(
+      "tags",
+      JSON.stringify(formData.tags.split(",").map((tag) => tag.trim()))
+    );
+    form.append("creatorId", formData.creatorId);
+    form.append("creatorWallet", formData.creatorWallet);
+    form.append("assetType", assetType.toUpperCase());
+
+    if (assetType !== "Link" && formData.file) {
+      form.append("file", formData.file);
     } else if (assetType === "Link") {
-      form.append("url", formData.url)
+      form.append("url", formData.url);
     }
 
     try {
-      const response = await fetch("/api/assets/upload", {
+      const response = await fetch("http://localhost:3001/api/assets/upload", {
         method: "POST",
         body: form,
-      })
-      const result = await response.json()
+      });
+      const result = await response.json();
       if (response.ok) {
-        alert("Asset uploaded successfully!")
-        onClose()
+        alert("Asset uploaded successfully!");
+        onClose();
         setFormData({
           title: "",
           description: "",
@@ -68,17 +100,17 @@ const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onClose, as
           creatorWallet: "",
           file: null,
           url: "",
-        })
+        });
       } else {
-        alert(`Error: ${result.message || "Failed to upload asset"}`)
+        alert(`Error: ${result.message || "Failed to upload asset"}`);
       }
     } catch (error) {
-      console.error("Upload error:", error)
-      alert("An error occurred while uploading the asset.")
+      console.error("Upload error:", error);
+      alert("An error occurred while uploading the asset.");
     }
-  }
+  };
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -223,7 +255,7 @@ const AssetUploadModal: React.FC<AssetUploadModalProps> = ({ isOpen, onClose, as
         </form>
       </motion.div>
     </div>
-  )
-}
+  );
+};
 
-export default AssetUploadModal
+export default AssetUploadModal;

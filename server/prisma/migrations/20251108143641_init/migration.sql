@@ -1,9 +1,9 @@
 -- CreateEnum
-CREATE TYPE "AssetType" AS ENUM ('IMAGE', 'VIDEO', 'DOCUMENT', 'AUDIO', 'LINK', 'OTHER');
+CREATE TYPE "AssetType" AS ENUM ('IMAGE', 'VIDEO', 'PDF', 'LINK');
 
 -- CreateTable
 CREATE TABLE "users" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "name" TEXT,
     "walletAddress" TEXT NOT NULL,
     "email" TEXT,
@@ -15,17 +15,19 @@ CREATE TABLE "users" (
 
 -- CreateTable
 CREATE TABLE "assets" (
-    "id" SERIAL NOT NULL,
-    "filename" TEXT NOT NULL,
+    "id" TEXT NOT NULL,
+    "filename" TEXT,
     "originalName" TEXT,
     "title" TEXT,
     "description" TEXT,
-    "filePath" TEXT NOT NULL,
+    "filePath" TEXT,
+    "base64Data" TEXT,
+    "url" TEXT,
     "assetType" "AssetType",
     "price" DECIMAL(10,6) NOT NULL DEFAULT 0.01,
     "metadata" JSONB,
     "tags" TEXT[],
-    "creatorId" INTEGER NOT NULL,
+    "creatorId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

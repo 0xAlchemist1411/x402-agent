@@ -10,10 +10,8 @@ datasource db {
 enum AssetType {
   IMAGE
   VIDEO
-  DOCUMENT
-  AUDIO
+  PDF
   LINK
-  OTHER
 }
 
 model User {
