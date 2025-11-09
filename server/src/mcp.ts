@@ -1,4 +1,4 @@
-// src/mcp.ts
+// mcp.ts (updated)
 import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import axios from "axios";
@@ -6,31 +6,30 @@ import { z } from "zod";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { atxpExpress, requirePayment, ATXPAccount } from "@atxp/express";
+import BigNumber from "bignumber.js";
+import bodyParser from "body-parser";
 
-import { atxpExpress, requirePayment, ATXPAccount } from '@atxp/express';  
-import BigNumber from "bignumber.js"; 
 
 dotenv.config();
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
 const MCP_PORT = Number(process.env.MCP_PORT ?? 3030);
-const ATXP_CONNECTION = process.env.ATXP_CONNECTION
+const ATXP_CONNECTION = process.env.ATXP_CONNECTION;
 if (!ATXP_CONNECTION) {
-  throw new Error("ATXP_CONNECTION is not set");
+  console.warn("Warning: ATXP_CONNECTION is not set. ATXP routes or payment enforcement will be optional.");
 }
 
-// Create MCP server
 const server = new McpServer({
   name: "assets-mcp",
   version: "1.0.0",
 });
 
-// Streamable HTTP transport (stateless)
 const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
   sessionIdGenerator: undefined,
 });
 
-// Helper to stringify responses for SDK content type safety
 const asTextContent = (obj: any) => ({
   content: [
     {
@@ -40,23 +39,48 @@ const asTextContent = (obj: any) => ({
   ],
 });
 
-// Mount ATXP router if possible (defensive)
 const app = express();
 app.use(express.json({ limit: "8mb" }));
 
+// Helper: normalize assetId (accepts string or number)
+function normalizeAssetId(id: string | number) {
+  return String(id);
+}
 
-app.use(atxpExpress({ 
-    destination: new ATXPAccount(ATXP_CONNECTION ?? ""), // Your connection string
-    payeeName: 'Your Server Name',    // The name of your MCP server
-  }))  
+// Helper: best-effort record transaction
+async function recordTransactionIfAvailable(transaction: {
+  assetId: number | string;
+  payer: string;
+  payee: string;
+  amount: string;
+  currency?: string;
+  status?: string;
+  metadata?: any;
+}) {
+  try {
+    await axios.post(`${API_URL}/api/transactions`, {
+      assetId: transaction.assetId,
+      payer: transaction.payer,
+      payee: transaction.payee,
+      amount: transaction.amount,
+      currency: transaction.currency ?? "USDC",
+      status: transaction.status ?? "completed",
+      metadata: transaction.metadata ?? {},
+    });
+  } catch (err: any) {
+    // If transactions endpoint does not exist, log and continue — do not fail the whole flow
+    if (err?.response?.status === 404) {
+      console.warn("/api/transactions not found — skipping transaction recording");
+    } else {
+      console.warn("Warning: recording transaction failed:", err?.message ?? err);
+    }
+  }
+}
 
+// -------------------------
+// MCP Tools
+// -------------------------
 
-
-// -----------------------------
-// Tools
-// -----------------------------
-
-// listAssets: free
 server.tool(
   "listAssets",
   "List or search assets (supports q, tag, page, pageSize)",
@@ -72,56 +96,51 @@ server.tool(
     if (tag) params.tag = tag;
 
     const res = await axios.get(`${API_URL}/api/assets`, { params });
-    return asTextContent(res.data as unknown as { content: { type: string; text: string }[] }) as any;
+    return asTextContent(res.data) as any;
   }
 );
 
-// getAssetInfo: free metadata
+server.tool(
+  "listTags",
+  "List all tags",
+  {},
+  async () => {
+    const res = await axios.get(`${API_URL}/api/tags`);
+    return asTextContent(res.data) as any;
+  }
+);
+
 server.tool(
   "getAssetInfo",
   "Get detailed metadata for an asset by ID (metadata only — no filePath)",
-  { assetId: z.number().int() },
+  { assetId: z.union([z.string(), z.number().int()]) },
   async ({ assetId }) => {
-    const res = await axios.get(`${API_URL}/api/assets/${assetId}`);
-    // The API returns { data: asset } — return the metadata portion only for clarity
+    const id = normalizeAssetId(assetId);
+    const res = await axios.get(`${API_URL}/api/assets/${encodeURIComponent(id)}`);
     const body = (res.data as any)?.data ?? res.data;
-    // strip filePath to avoid leaking path before payment (defensive)
     if (body && body.filePath) {
       const { filePath, ...rest } = body;
-      return asTextContent({ data: rest });
+      return asTextContent({ data: rest }) as any;
     }
     return asTextContent({ data: body }) as any;
   }
 );
 
-/**
- * getAsset (payable)
- *
- * Flow:
- * 1. Fetch asset metadata from API to read price (and creator)
- * 2. requirePayment({ price }) via ATXP (enforced by ATXP express router)
- * 3. After payment, optionally record transaction by POST /api/transactions
- * 4. Return asset object including filePath
- */
 server.tool(
   "getAsset",
-  "Pay the asset price to retrieve the asset filePath (enforces ATXP payment)",
-  { assetId: z.number().int() },
+  "Pay the asset price to retrieve the asset (enforces payment optionally)",
+  { assetId: z.union([z.string(), z.number().int()]) },
   async ({ assetId }, extra) => {
-    // 1) fetch asset metadata
-    const res = await axios.get(`${API_URL}/api/assets/${assetId}`);
+    const id = normalizeAssetId(assetId);
+    const res = await axios.get(`${API_URL}/api/assets/${encodeURIComponent(id)}`);
     const asset = (res.data as any)?.data ?? res.data;
     if (!asset) throw new Error("asset not found");
 
-    // asset.price should exist and be a numeric string/number
-    const rawPrice = (asset as any).price ?? (asset as any)?.price?.toString?.() ?? null;
+    const rawPrice = (asset as any).price ?? null;
     if (rawPrice == null) {
       throw new Error("asset price not available for this asset");
     }
 
-    // await requirePayment({price: BigNumber(0.000001)}); 
-
-    // ensure price is a BigNumber
     let priceBN: BigNumber;
     try {
       priceBN = new BigNumber(rawPrice);
@@ -129,30 +148,79 @@ server.tool(
       throw new Error("invalid asset price format");
     }
 
-    // Enforce payment. This will trigger the ATXP UX for payers.
-    await requirePayment({ price: priceBN });
+    // OPTIONAL: ATXP enforcement
+    // The MCP SDK tool handler receives an `extra` object — you can use that to pass through
+    // session/payment metadata from the caller. How you integrate ATXP depends on your client.
+    // Below is an example *pattern* (not executable middleware) showing how you might check
+    // that payment was verified before returning the file. Replace with your ATXP workflow.
 
-    // 3) record transaction (best-effort).
-    // Try to send a transaction record to API (if available). Use extra/session info if present.
-    const payer = (extra as any)?.sessionId ?? (asset.requestorWallet ?? "unknown");
-    try {
-      await axios.post(`${API_URL}/api/transactions`, {
-        assetId: Number(assetId),
-        payer,
-        payee: asset.creator?.walletAddress ?? process.env.ATXP_CONNECTION ?? "platform",
-        amount: priceBN.toString(),
-        currency: "USDC",
-        status: "completed",
-        metadata: { deliveredAt: new Date().toISOString() },
-      });
-    } catch (err) {
-      // log and continue — transaction recording shouldn't block delivery
-      console.warn("Warning: recording transaction failed:", (err as any)?.message ?? err);
+    if (ATXP_CONNECTION) {
+      // Example: expect caller to provide a flag like extra.paymentVerified or a paymentReceipt
+      // If you want to enforce payment at the MCP layer, validate payment here and throw if not paid.
+      const paymentVerified = (extra as any)?.paymentVerified ?? false;
+      if (!paymentVerified) {
+        await requirePayment({ price: priceBN });
+      }
     }
 
-    // 4) Return the asset including the filePath (now that payment is done)
-    // We return as text JSON content for SDK type safety.
+    // record transaction best-effort
+    const payer = (extra as any)?.sessionId ?? (asset.requestorWallet ?? "unknown");
+    await recordTransactionIfAvailable({
+      assetId: id,
+      payer,
+      payee: asset.creator?.walletAddress ?? process.env.ATXP_CONNECTION ?? "platform",
+      amount: priceBN.toString(),
+      currency: "USDC",
+      status: "completed",
+      metadata: { deliveredAt: new Date().toISOString() },
+    });
+
+    // Return the asset (including filePath now that payment is done)
     return asTextContent({ data: asset }) as any;
+  }
+);
+
+server.tool(
+  "getAssetBase64",
+  "Retrieve asset including base64 data (no payment enforcement)",
+  { assetId: z.union([z.string(), z.number().int()]) },
+  async ({ assetId }) => {
+    const id = normalizeAssetId(assetId);
+    const res = await axios.get(`${API_URL}/api/assets/${encodeURIComponent(id)}/base64`);
+    return asTextContent(res.data) as any;
+  }
+);
+
+server.tool(
+  "uploadAsset",
+  "Upload an asset using base64 + metadata (use this for MCP clients)",
+  {
+    filename: z.string(),
+    originalName: z.string().optional(),
+    base64Data: z.string(),
+    title: z.string().optional(),
+    description: z.string().optional(),
+    assetType: z.string().optional(),
+    price: z.number().optional(),
+    tags: z.array(z.string()).optional(),
+    creatorId: z.string(),
+    creatorWallet: z.string().optional(),
+  },
+  async (payload) => {
+    // Forward to an API endpoint that accepts base64 JSON uploads. Create this endpoint in api.ts
+    // as POST /api/assets/upload-base64 which will decode base64 and persist the file.
+    const res = await axios.post(`${API_URL}/api/assets/upload-base64`, payload);
+    return asTextContent(res.data) as any;
+  }
+);
+
+server.tool(
+  "runAgent",
+  "Run server-side agent with a query string",
+  { query: z.string() },
+  async ({ query }) => {
+    const res = await axios.post(`${API_URL}/api/agent`, { query });
+    return asTextContent(res.data) as any;
   }
 );
 
@@ -165,9 +233,17 @@ const transportSetup = async () => {
   await server.connect(transport);
 };
 
-// MCP JSON-RPC endpoint (Streamable HTTP)
-app.post("/", async (req: Request, res: Response) => {
+// MCP JSON-RPC endpoint (Streamable HTTP). Clients should POST to /mcp
+app.post("/mcp", async (req: Request, res: Response) => {
   try {
+    // make server tolerant of clients that don't set Accept correctly
+    const acceptHeader = (req.headers.accept ?? "") as string;
+    if (!acceptHeader.includes("application/json") || !acceptHeader.includes("text/event-stream")) {
+      // Mutate the header so the MCP transport won't reject the request.
+      // Node allows modifying req.headers directly in this context.
+      req.headers.accept = "application/json, text/event-stream";
+    }
+
     await transport.handleRequest(req, res, req.body);
   } catch (err) {
     console.error("transport.handleRequest error:", err);
@@ -177,6 +253,20 @@ app.post("/", async (req: Request, res: Response) => {
         error: { code: -32603, message: "Internal server error" },
         id: null,
       });
+    }
+  }
+});
+
+
+app.get("/mcp", async (req, res) => {
+  try {
+    const sseTransport = new SSEServerTransport("/mcp", res);
+    await server.connect(sseTransport);
+    // don’t end response — SSE keeps streaming open
+  } catch (err) {
+    console.error("SSE connection error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to establish SSE transport" });
     }
   }
 });
@@ -191,6 +281,7 @@ transportSetup()
   .then(() => {
     app.listen(MCP_PORT, () => {
       console.log(`MCP server listening on http://localhost:${MCP_PORT}`);
+      console.log(`MCP transport endpoint: http://localhost:${MCP_PORT}/mcp`);
       console.log(`Using API at ${API_URL}`);
     });
   })
