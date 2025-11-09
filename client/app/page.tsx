@@ -2,12 +2,9 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Plus } from "lucide-react"
-import Header from "@/components/header"
 import AssetGrid from "@/components/asset-grid"
 import SearchBox from "@/components/search-box"
 import ChatInterface from "@/components/chat-interface"
-import UploadModal from "@/components/upload-modal"
 import Toast from "@/components/toast"
 
 export default function Home() {
@@ -40,8 +37,6 @@ export default function Home() {
   return (
     <div className={isDark ? "dark" : ""}>
       <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
-        {/* <Header isDark={isDark} onToggleDark={() => setIsDark(!isDark)} /> */}
-
         <AnimatePresence mode="wait">
           {!isChatMode ? (
             <motion.div

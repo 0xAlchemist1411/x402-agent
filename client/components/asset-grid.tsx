@@ -8,36 +8,16 @@ import { useState } from "react"
 import AssetUploadModal from "@/components/ui/AssetUploadModal"
 
 const MOCK_ASSETS = [
-  {
-    id: 1,
-    title: "Images",
-    type: "Image",
-    thumbnail: "/image.png",
-  },
-  {
-    id: 2,
-    title: "PDF",
-    type: "PDF",
-    thumbnail: "/pdf.png",
-  },
-  {
-    id: 3,
-    title: "Videos",
-    type: "Video",
-    thumbnail: "/video.jpg",
-  },
-  {
-    id: 4,
-    title: "Links",
-    type: "Link",
-    thumbnail: "/link.png",
-  },
+  { id: 1, title: "Images", type: "Image", thumbnail: "/image.png" },
+  { id: 2, title: "PDF", type: "Paper", thumbnail: "/pdf.png" },
+  { id: 3, title: "Videos", type: "Video", thumbnail: "/video.jpg" },
+  { id: 4, title: "Links", type: "Link", thumbnail: "/link.png" },
 ]
 
 const typeIcons = {
   Image: ImageIcon,
   Video: Play,
-  PDF: FileText,
+  Paper: FileText,
   Link: Globe,
 }
 
@@ -48,6 +28,15 @@ export default function AssetGridPage() {
   const openModal = (type: string) => {
     setSelectedAssetType(type)
     setModalOpen(true)
+  }
+
+  const handleSubmit = (data: any) => {
+    console.log("Asset uploaded:", data)
+    // Add logic to update UI or fetch new assets
+  }
+
+  const handleError = (error: string) => {
+    alert(error) // Replace with toast notification for better UX
   }
 
   return (
@@ -64,24 +53,19 @@ export default function AssetGridPage() {
                   transition={{ duration: 0.5, delay: index * 0.1 }}
                   className="relative rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-300 h-32"
                 >
-                  {/* Thumbnail */}
                   <div className="relative h-full">
                     <img
                       src={asset.thumbnail}
                       alt={asset.title}
                       className="w-full h-full object-cover opacity-50"
                     />
-                    {/* Content Overlay */}
                     <div className="absolute top-4 left-4">
                       <div className="flex items-center space-x-3">
                         <IconComponent className="w-6 h-6 text-white" />
-                        <h3 className="text-lg font-semibold text-white">
-                          {asset.title}
-                        </h3>
+                        <h3 className="text-lg font-semibold text-white">{asset.title}</h3>
                       </div>
                     </div>
                   </div>
-                  {/* Plus Icon */}
                   <div className="absolute bottom-2 right-2">
                     <button
                       onClick={() => openModal(asset.type)}
@@ -99,6 +83,8 @@ export default function AssetGridPage() {
       <AssetUploadModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
+        onSubmit={handleSubmit}
+        onError={handleError}
         assetType={selectedAssetType}
       />
     </div>
