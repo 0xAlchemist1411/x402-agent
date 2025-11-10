@@ -48,10 +48,8 @@ This suggests the core focus: handling different asset types and enabling their 
 ### Installation  
 ```bash
 # Clone the repository  
-git clone https://github.com/<your-org>/x404-atxp-mcp.git  
-cd x404-atxp-mcp  
+git clone https://github.com/0xAlchemist1411/x402-agent.git
+cd x402-agent
 
 # Install dependencies  
-npm install  
-# or  
-yarn install  
+npm install -> for each folders
