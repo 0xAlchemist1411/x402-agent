@@ -177,23 +177,27 @@ app.get("/api/assets/:id/base64", async (req, res) => {
 
 
 app.post("/api/agent", async (req, res) => {
-    try {
-      const { query } = req.body;
-      console.log(query,query)
-      if (!query || typeof query !== "string") {
-        return res.status(400).json({
-          error: "bad_request",
-          message: "Query string is required",
-        });
-      }
-  
-      const response = await runAgent(query);
-      res.json({ response });
-    } catch (err) {
-      console.error("POST /api/agent error", err);
-      res.status(500).json({ error: "internal_error", message: "Failed to process agent query" });
+  try {
+    const { query } = req.body;
+
+    if (!query || typeof query !== "string") {
+      return res.status(400).json({
+        error: "bad_request",
+        message: "Query string is required",
+      });
     }
-  });
+
+    const data = await runAgent(query);
+
+    res.json(data);
+  } catch (err) {
+    console.error("POST /api/agent error", err);
+    res.status(500).json({
+      error: "internal_error",
+      message: "Failed to process agent query",
+    });
+  }
+});
 
 const PORT = Number(process.env.API_PORT ?? 3001);
 app.listen(PORT, () => {

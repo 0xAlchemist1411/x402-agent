@@ -1,104 +1,108 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, Send, Lock } from "lucide-react"
-import { ImageIcon, Play, FileText, Globe } from "lucide-react"
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowLeft,
+  Send,
+  Lock,
+  User,
+  Bot,
+  ImageIcon,
+  Play,
+  FileText,
+  Globe,
+} from "lucide-react";
 
 interface ChatMessage {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  assets?: any[]
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  assets?: any[];
 }
 
 interface ChatInterfaceProps {
-  initialQuery: string
-  onBack: () => void
+  initialQuery: string;
+  onBack: () => void;
 }
 
-const MOCK_SEARCH_RESULTS: { [key: string]: any[] } = {
-  "AI art": [
-    {
-      id: 1,
-      title: "Abstract AI Art",
-      description: "Stunning AI-generated artwork",
-      type: "Image",
-      price: 0.05,
-    },
-    {
-      id: 2,
-      title: "Neural Style Transfer",
-      description: "AI image transformation tutorial",
-      type: "Video",
-      price: 0.08,
-    },
-  ],
-  "web development": [
-    {
-      id: 3,
-      title: "React Mastery Course",
-      description: "Complete React guide",
-      type: "Paper",
-      price: 0.1,
-    },
-  ],
-}
-
-export default function ChatInterface({ initialQuery, onBack }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
+export default function ChatInterface({
+  initialQuery,
+  onBack,
+}: ChatInterfaceProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (initialQuery) {
-      handleSendMessage(initialQuery)
+      handleSendMessage(initialQuery);
     }
-  }, [initialQuery])
+  }, [initialQuery]);
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages])
+  }, [messages]);
 
   const handleSendMessage = async (query: string = input) => {
-    if (!query.trim()) return
+    if (!query.trim()) return;
 
-    // Add user message
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: "user",
       content: query,
-    }
+    };
 
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsLoading(true)
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
 
-    // Simulate API delay
-    setTimeout(() => {
-      const searchResults = MOCK_SEARCH_RESULTS[query.toLowerCase()] || MOCK_SEARCH_RESULTS["AI art"]
+    try {
+      const response = await fetch("http://localhost:3001/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok)
+        throw new Error("Failed to fetch response from the server");
+
+      const data = await response.json();
+
+      const parsedResponse = data.response || "No response received.";
 
       const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: (Date.now() + 2).toString(),
         role: "assistant",
-        content: `Found ${searchResults.length} assets matching "${query}":`,
-        assets: searchResults,
-      }
+        content: parsedResponse,
+        assets: data.assets || [],
+      };
 
-      setMessages((prev) => [...prev, assistantMessage])
-      setIsLoading(false)
-    }, 800)
-  }
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error("Error in handleSendMessage:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 3).toString(),
+          role: "assistant",
+          content: "⚠️ Sorry, something went wrong. Please try again later.",
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const typeIcons: { [key: string]: any } = {
     Image: ImageIcon,
     Video: Play,
     Paper: FileText,
     Link: Globe,
-  }
+  };
 
   return (
     <motion.div
@@ -108,7 +112,7 @@ export default function ChatInterface({ initialQuery, onBack }: ChatInterfacePro
       className="fixed inset-0 z-40 flex flex-col bg-background pt-20"
     >
       {/* Header */}
-      <div className="flex items-center gap-4 px-4 md:px-8 py-4 border-b border-border">
+      <div className="flex items-center gap-4 px-4 md:px-8 py-4 border-b border-border bg-card/40 backdrop-blur-md">
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -118,33 +122,47 @@ export default function ChatInterface({ initialQuery, onBack }: ChatInterfacePro
           <ArrowLeft size={20} />
           <span className="hidden sm:inline">Back</span>
         </motion.button>
-        <h1 className="text-xl font-semibold text-foreground">Asset Search</h1>
+        <h1 className="text-xl font-semibold text-foreground">
+          x402 atxp MCP Agent
+        </h1>
       </div>
 
-      {/* Chat Area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
+      {/* Chat Messages */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6"
+      >
         <AnimatePresence>
-          {messages.map((message, index) => (
+          {messages.map((message) => (
             <motion.div
               key={message.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex items-start gap-3 ${
+                message.role === "user" ? "justify-end" : "justify-start"
+              }`}
             >
+              {message.role === "assistant" && (
+                <Bot className="text-blue-500 mt-1 shrink-0" size={24} />
+              )}
+              {message.role === "user" && (
+                <User className="text-gray-400 mt-1 shrink-0" size={24} />
+              )}
+
               <div
-                className={`max-w-2xl ${
+                className={`max-w-2xl shadow-sm ${
                   message.role === "user"
                     ? "bg-blue-500 text-white rounded-3xl rounded-tr-lg"
                     : "bg-muted text-foreground rounded-3xl rounded-tl-lg"
                 } px-6 py-4`}
               >
-                <p className="mb-4">{message.content}</p>
+                <p className="whitespace-pre-line">{message.content}</p>
 
-                {message.assets && (
+                {/* Asset Cards */}
+                {message.assets && message.assets.length > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     {message.assets.map((asset) => {
-                      const IconComponent = typeIcons[asset.type as keyof typeof typeIcons]
+                      const IconComponent = typeIcons[asset.type] || FileText;
                       return (
                         <motion.div
                           key={asset.id}
@@ -153,14 +171,23 @@ export default function ChatInterface({ initialQuery, onBack }: ChatInterfacePro
                           className="bg-card border border-border rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer group"
                         >
                           <div className="flex justify-between items-start mb-2">
-                            <h3 className="font-semibold text-foreground line-clamp-2 flex-1">{asset.title}</h3>
+                            <h3 className="font-semibold text-foreground line-clamp-2 flex-1">
+                              {asset.title}
+                            </h3>
                             <div className="ml-2 p-2 rounded bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
-                              <IconComponent size={16} className="text-blue-500" />
+                              <IconComponent
+                                size={16}
+                                className="text-blue-500"
+                              />
                             </div>
                           </div>
-                          <p className="text-sm text-foreground/60 line-clamp-2 mb-3">{asset.description}</p>
+                          <p className="text-sm text-foreground/60 line-clamp-2 mb-3">
+                            {asset.description}
+                          </p>
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-foreground">{asset.price} ETH</span>
+                            <span className="font-bold text-foreground">
+                              {asset.price} ETH
+                            </span>
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
@@ -171,7 +198,7 @@ export default function ChatInterface({ initialQuery, onBack }: ChatInterfacePro
                             </motion.button>
                           </div>
                         </motion.div>
-                      )
+                      );
                     })}
                   </div>
                 )}
@@ -181,17 +208,18 @@ export default function ChatInterface({ initialQuery, onBack }: ChatInterfacePro
 
           {isLoading && (
             <motion.div
+              key="typing"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex justify-start"
+              className="flex justify-start items-center gap-3"
             >
+              <Bot className="text-blue-500" size={24} />
               <div className="flex gap-2 px-6 py-4">
                 {[0, 1, 2].map((i) => (
                   <motion.div
                     key={i}
                     animate={{ y: [0, -8, 0] }}
-                    transition={{ repeat: Number.POSITIVE_INFINITY, delay: i * 0.15 }}
+                    transition={{ repeat: Infinity, delay: i * 0.15 }}
                     className="w-2 h-2 rounded-full bg-blue-500"
                   />
                 ))}
@@ -201,19 +229,17 @@ export default function ChatInterface({ initialQuery, onBack }: ChatInterfacePro
         </AnimatePresence>
       </div>
 
-      {/* Input Area */}
+      {/* Input */}
       <div className="border-t border-border px-4 md:px-8 py-4 bg-background">
         <div className="max-w-4xl mx-auto flex gap-4">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !isLoading) {
-                handleSendMessage()
-              }
-            }}
-            placeholder="Type your search query..."
+            onKeyDown={(e) =>
+              e.key === "Enter" && !isLoading && handleSendMessage()
+            }
+            placeholder="Ask atxp MCP Agent..."
             className="flex-1 px-6 py-3 rounded-full bg-card border border-border focus:border-blue-500 outline-none text-foreground placeholder:text-foreground/40 transition-colors"
           />
           <motion.button
@@ -228,5 +254,5 @@ export default function ChatInterface({ initialQuery, onBack }: ChatInterfacePro
         </div>
       </div>
     </motion.div>
-  )
+  );
 }
