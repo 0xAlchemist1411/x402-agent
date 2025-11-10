@@ -175,7 +175,7 @@ app.get("/api/assets/:id/base64", async (req, res) => {
 });
 
 
-app.post("/api/assets/upload", async (req, res) => {
+app.post("/api/assets/upload-base64", async (req, res) => {
   try {
     const { filename, originalName, base64Data, title, description, assetType, price, tags, creatorId, creatorWallet } = req.body;
 
