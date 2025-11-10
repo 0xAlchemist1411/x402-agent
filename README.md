@@ -20,22 +20,7 @@ This suggests the core focus: handling different asset types and enabling their 
 - Asset management interface: categorised by asset type (images, PDF, videos, links)  
 - AI-powered MCP agent:  
   - Assists users in discovering assets  
-  - Provides recommendations / insights? (depending on implementation)  
-- Clean, modern UI using Next.js (as indicated by “Create Next App”)  
-- Deployment ready for Vercel (or similar hosting)  
-
----
-
-## 🧱 Technology Stack  
-- Frontend & backend framework: Next.js  
-- Possibly TypeScript (if configured)  
-- Hosted/deployed on Vercel  
-- Asset storage: (you may use e.g. AWS S3, Cloudinary, or Vercel Storage)  
-- AI agent backend: (e.g. OpenAI API, LangChain, or custom)  
-- Database: (not explicitly shown — e.g. PostgreSQL, MongoDB)  
-- Authentication & user management: (add if implemented)  
-
----
+  - Provides recommendations / insights
 
 ## 📥 Getting Started  
 
