@@ -48,22 +48,45 @@ export default function Home() {
             >
               {/* Main Page */}
               <div className="container mx-auto px-4 py-12">
-                {/* Upload Assets Section */}
-                <section className="mb-16">
-                  <div className="flex items-start gap-8">
-
-                    {/* Asset Grid */}
-                    <div className="flex-1">
-                      <AssetGrid />
-                    </div>
-                  </div>
+                {/* Hero Section */}
+                <section className="mb-16 text-center">
+                  <motion.h1 
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="text-5xl md:text-7xl font-bold mb-6"
+                  >
+                    <span className="bg-gradient-to-r from-blue-500 via-teal-500 to-purple-500 bg-clip-text text-transparent">
+                      x404 ATXP MCP
+                    </span>
+                  </motion.h1>
+                  <motion.p 
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className="text-xl md:text-2xl text-foreground/70 mb-8 max-w-3xl mx-auto"
+                  >
+                    AI-Powered Digital Asset Marketplace with MCP agent
+                  </motion.p>
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex justify-center mb-12"
+                  >
+                    <SearchBox onActivate={handleSearchActivate} onFocus={() => setIsChatMode(true)} />
+                  </motion.div>
                 </section>
 
-                {/* Search Box Section */}
+                {/* Asset Grid Section */}
                 <section className="mb-16">
-                  <div className="flex justify-center">
-                    <SearchBox onActivate={handleSearchActivate} onFocus={() => setIsChatMode(true)} />
-                  </div>
+                  <motion.h2 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-3xl font-bold mb-8 text-center"
+                  >
+                    Upload Assets
+                  </motion.h2>
+                  <AssetGrid />
                 </section>
               </div>
             </motion.div>

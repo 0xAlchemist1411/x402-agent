@@ -9,7 +9,7 @@ export async function runAgent(query: string) {
     const client = new MultiServerMCPClient({
       assets: {
         transport: "sse",
-        url: "http://localhost:3030/mcp",
+        url: process.env.MCP_URL || "http://localhost:3030/mcp",
         headers: {
           Accept: "application/json, text/event-stream",
         },
@@ -19,28 +19,24 @@ export async function runAgent(query: string) {
     // Fetch all available tools
     const tools = await client.getTools();
 
-    // Initialize OpenAI model
     const model = new ChatOpenAI({
       apiKey: process.env.OPENAI_API_KEY,
       model: "gpt-4o-mini",
       temperature: 0.7,
+      maxTokens: 4000,
     });
 
     // Create an agent with tools and model
     const agent = createAgent({ model, tools });
 
     // Define system prompt
-    const systemPrompt = `
-      You are Poseidon MCP Agent — an AI assistant capable of fetching, uploading, and managing digital assets
-      (images, videos, or documents) using the MCP (Model Context Protocol).
-      Always reason carefully about the user's intent.
-      - When asked about assets, use MCP tools like listAssets or getAssetInfo.
-      - When asked to upload, use uploadAsset if available.
-      - When asked to perform any action that involves payment or transaction, note that the server may require ATXP validation.
-      Be concise, structured, and helpful in all responses.
-    `;
+    const systemPrompt = `You are MCP Agent — an AI assistant for managing digital assets via MCP.
+- Use listAssets or getAssetInfo for queries
+- Use uploadAsset for uploads
+- Note ATXP validation for transactions
+Be concise and helpful.`;
 
-    // Run the agent with both system and user messages
+    // Run the agent
     const result = await agent.invoke({
       messages: [
         { role: "system", content: systemPrompt },
@@ -48,15 +44,13 @@ export async function runAgent(query: string) {
       ],
     });
 
-    if (result?.messages) {
-      const aiMessage = result.messages.find(
-        (m: any) =>
-          m.id?.[2] === "AIMessage" ||
-          m.type === "ai" ||
-          m.role === "assistant"
-      );
+    console.log("Agent result:", JSON.stringify(result, null, 2));
 
-      const responseText = aiMessage?.content || "No response found";
+    if (result?.messages) {
+      const lastMessage = result.messages[result.messages.length - 1];
+      const responseText = typeof lastMessage?.content === 'string' 
+        ? lastMessage.content 
+        : JSON.stringify(lastMessage?.content || "No response found");
 
       return {
         messages: result.messages,

@@ -18,7 +18,7 @@ export default function Header({ isDark, onToggleDark }: HeaderProps) {
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo */}
         <div className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-teal-500 bg-clip-text text-transparent">
-          AssetHub
+          x404 ATXP MCP
         </div>
 
         {/* Navigation */}

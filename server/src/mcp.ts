@@ -7,9 +7,8 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { atxpExpress, requirePayment, ATXPAccount } from "@atxp/express";
+import { requirePayment } from "@atxp/express";
 import BigNumber from "bignumber.js";
-import bodyParser from "body-parser";
 
 
 dotenv.config();
@@ -90,13 +89,19 @@ server.tool(
     page: z.number().int().nonnegative().optional(),
     pageSize: z.number().int().positive().optional(),
   },
-  async ({ q, tag, page = 0, pageSize = 100 }) => {
+  async ({ q, tag, page = 0, pageSize = 10 }) => {
     const params: Record<string, unknown> = { page, pageSize };
     if (q) params.q = q;
     if (tag) params.tag = tag;
 
     const res = await axios.get(`${API_URL}/api/assets`, { params });
-    return asTextContent(res.data) as any;
+    const responseData = (res.data as any)?.data || res.data;
+
+    const sanitized = Array.isArray(responseData)
+      ? responseData.map(({ base64Data, filePath, ...rest }: any) => rest)
+      : responseData;
+
+    return asTextContent({ data: sanitized, page, pageSize }) as any;
   }
 );
 
@@ -112,14 +117,14 @@ server.tool(
 
 server.tool(
   "getAssetInfo",
-  "Get detailed metadata for an asset by ID (metadata only — no filePath)",
+  "Get detailed metadata for an asset by ID (metadata only — no filePath or base64)",
   { assetId: z.union([z.string(), z.number().int()]) },
   async ({ assetId }) => {
     const id = normalizeAssetId(assetId);
     const res = await axios.get(`${API_URL}/api/assets/${encodeURIComponent(id)}`);
     const body = (res.data as any)?.data ?? res.data;
-    if (body && body.filePath) {
-      const { filePath, ...rest } = body;
+    if (body) {
+      const { filePath, base64Data, ...rest } = body;
       return asTextContent({ data: rest }) as any;
     }
     return asTextContent({ data: body }) as any;

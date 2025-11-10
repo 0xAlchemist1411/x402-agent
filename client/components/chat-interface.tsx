@@ -122,8 +122,8 @@ export default function ChatInterface({
           <ArrowLeft size={20} />
           <span className="hidden sm:inline">Back</span>
         </motion.button>
-        <h1 className="text-xl font-semibold text-foreground">
-          x402 atxp MCP Agent
+        <h1 className="text-xl font-semibold bg-gradient-to-r from-blue-500 to-teal-500 bg-clip-text text-transparent">
+          x404 atxp MCP Agent
         </h1>
       </div>
 
@@ -239,7 +239,7 @@ export default function ChatInterface({
             onKeyDown={(e) =>
               e.key === "Enter" && !isLoading && handleSendMessage()
             }
-            placeholder="Ask atxp MCP Agent..."
+            placeholder="Ask x404 Agent anything..."
             className="flex-1 px-6 py-3 rounded-full bg-card border border-border focus:border-blue-500 outline-none text-foreground placeholder:text-foreground/40 transition-colors"
           />
           <motion.button

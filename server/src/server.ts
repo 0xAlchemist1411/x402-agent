@@ -6,7 +6,7 @@ import bodyParser from "body-parser";
 import * as assetsService from "./services/assets.js";
 import multer from "multer";
 import fs from "fs";
-import {runAgent} from './agent.js'
+import { runAgent } from './agent.js'
 
 
 dotenv.config();
@@ -18,11 +18,11 @@ app.use(bodyParser.json());
 const upload = multer({ dest: "uploads/" });
 
 app.use((req, _res, next) => {
-    console.log("INCOMING:", req.method, req.path, "Accept:", req.headers.accept);
-    next();
-  });
+  console.log("INCOMING:", req.method, req.path, "Accept:", req.headers.accept);
+  next();
+});
 
-  
+
 // GET /api/assets
 // Optional query params:
 // - tag=tech
@@ -40,19 +40,6 @@ app.get("/api/assets", async (req, res) => {
     res.json({ data: results, page, pageSize });
   } catch (err) {
     console.error("GET /api/assets error", err);
-    res.status(500).json({ error: "internal_error" });
-  }
-});
-
-// GET /api/assets/:id
-app.get("/api/assets/:id", async (req, res) => {
-  try {
-    const id = req.params.id;
-    const asset = await assetsService.getAssetById(id);
-    if (!asset) return res.status(404).json({ error: "not_found" });
-    res.json({ data: asset });
-  } catch (err) {
-    console.error("GET /api/assets/:id error", err);
     res.status(500).json({ error: "internal_error" });
   }
 });
@@ -139,6 +126,18 @@ app.post("/api/assets/upload", upload.single("file"), async (req, res) => {
 });
 
 
+app.get("/api/assets/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const asset = await assetsService.getAssetById(id);
+    if (!asset) return res.status(404).json({ error: "not_found" });
+    res.json({ data: asset });
+  } catch (err) {
+    console.error("GET /api/assets/:id error", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
 app.get("/api/assets/:id/base64", async (req, res) => {
   try {
     const id = req.params.id;
@@ -175,6 +174,38 @@ app.get("/api/assets/:id/base64", async (req, res) => {
   }
 });
 
+
+app.post("/api/assets/upload", async (req, res) => {
+  try {
+    const { filename, originalName, base64Data, title, description, assetType, price, tags, creatorId, creatorWallet } = req.body;
+
+    if (!base64Data || !creatorId) {
+      return res.status(400).json({
+        error: "bad_request",
+        message: "base64Data and creatorId are required",
+      });
+    }
+
+    const asset = await assetsService.createAsset({
+      filename: filename || `upload-${Date.now()}`,
+      originalName: originalName || filename || "Untitled",
+      title: title || originalName || "Untitled",
+      description: description || "",
+      filePath: "",
+      base64Data,
+      assetType: assetType?.toUpperCase() || "IMAGE",
+      price: price || 0.01,
+      tags: tags || [],
+      creatorId,
+      creatorWallet,
+    });
+
+    res.json({ data: asset });
+  } catch (err) {
+    console.error("POST /api/assets/upload-base64 error", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
 
 app.post("/api/agent", async (req, res) => {
   try {
